@@ -919,6 +919,22 @@ function pushReadDenyDirMounts(
       logForDebugging(
         `[Sandbox Linux] Re-allowed read access within denied region: ${allowPath}`,
       )
+      // If allowPath is an ancestor of a re-bound write path, the ro-bind
+      // just shadowed that write path's rw bind (bind mounts stack, and
+      // this ro-bind lands after the write re-binds above), silently making
+      // the write path read-only. Re-emit the write bind on top so it
+      // stays writable.
+      for (const writePath of allowedWritePaths) {
+        if (
+          (writePath.startsWith(denySep) || writePath === normalizedPath) &&
+          writePath.startsWith(allowPath + '/')
+        ) {
+          args.push('--bind', writePath, writePath)
+          logForDebugging(
+            `[Sandbox Linux] Re-bound write path shadowed by read-allow ancestor ${allowPath}: ${writePath}`,
+          )
+        }
+      }
     }
   }
 }
